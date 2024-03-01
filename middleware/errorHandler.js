@@ -1,4 +1,4 @@
-//will handle ultimately the next(err)
+//will handle ultimately the next(err) correct
 
 const errorHandlerModule = async (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;

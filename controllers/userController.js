@@ -1,12 +1,11 @@
 import handleAsyncError from "../middleware/catchAsyncError";
-import User from "../models/User";
+import Person from "../models/Person";
 import CustomError from "../utils/createError";
-import bcrypt from "bcrypt";
-import jwtTokenGen from "../utils/jsonwebtoken";
+
 
 //get all Users
 export const getAllUsers = handleAsyncError(async (req, res, next) => {
-  const users = await User.find();
+  const users = await Person.find();
   if (!users || users.length === 0) {
     return next(new CustomError("No users registered.", 404));
   } else {
@@ -17,61 +16,16 @@ export const getAllUsers = handleAsyncError(async (req, res, next) => {
   }
 });
 
-//get Current User
-export const getCurrentUser = handleAsyncError(async (req, res, next) => {
-  const id = req.user._id;
-  let currentUser;
-
-  try {
-    currentUser = await User.findById(id);
-  } catch (err) {
-    return next(new CustomError("Error in fetching the user.", 500));
-  }
-
-  return res.status(200).json({
-    message: "Successfully fetched User",
-    user: currentUser,
-  });
-});
-
-//get One User
-export const getOneUser = handleAsyncError(async (req, res, next) => {
-  const id = req.params.id;
-  let existingUser;
-
-  try {
-    existingUser = await User.findById(id);
-  } catch (err) {
-    return next(new CustomError("Error in fetching the user.", 500));
-  }
-
-  return res.status(200).json({
-    message: "Successfully fetched User",
-    user: existingUser,
-  });
-});
-
-//Sign Up the User
-export const signUpUser = handleAsyncError(async (req, res, next) => {
-  const { name, email, password } = req.body;
-  let existingUser;
-
-  try {
-    existingUser = await User.findOne({ email });
-  } catch (err) {
-    return next(new CustomError("Duplicates emails are not allowed", 401));
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const newUser = new User({
+//Add User
+export const addUser = handleAsyncError(async (req, res, next) => {
+  const { name, age, phone, location } = req.body;
+  const newUser = new Person({
     name,
-    email,
-    password: hashedPassword,
+    age,
+    phone,
+    location,
   });
-
   let user;
-
   try {
     user = await newUser.save();
     res.status(200).json({
@@ -83,75 +37,33 @@ export const signUpUser = handleAsyncError(async (req, res, next) => {
   }
 });
 
-//Sign In the User
-export const signInUser = handleAsyncError(async (req, res, next) => {
-  const { email, password } = req.body;
 
-  let existingUser;
+//search by location
+export const searchByLoc = async (req, res, next) => {
+
+  const query = req.query.q;
   try {
-    existingUser = await User.findOne({ email });
+      const users = await Person.find({ location : { $regex: query, $options: "i" } }).limit(40);//finds the users with atleast one user req tags in the users
+      res.status(200).json({
+          users
+      })
   } catch (err) {
-    console.log(err);
+      next(err);
   }
+}
 
-  if (!existingUser) {
-    return next(new CustomError(`User not found`, 401));
-  }
 
-  const isEqual = await bcrypt.compare(password, existingUser.password);
 
-  if (!isEqual) {
-    return next(new CustomError(`Password not matched`, 401));
-  }
+//search by location
+export const searchByName = async (req, res, next) => {
 
-  //no need of next here as it is not middle ware
-  return jwtTokenGen(existingUser, 200, res);
-});
-
-//Log Out the User
-export const logoutUser = handleAsyncError(async (req, res, next) => {
-  res.clearCookie("jwtCookie");
-  res.status(200).json({
-    message: "Logout successful",
-  });
-});
-
-//get one user notes
-export const getOneUserNotes = handleAsyncError(async (req, res, next) => {
-  const id = req.params.id;
-  let notes;
-
+  const query = req.query.q;
   try {
-    notes = await User.findById(id).populate("notes");
+      const users = await Person.find({ name : { $regex: query, $options: "i" } }).limit(40);//finds the users with atleast one user req tags in the users
+      res.status(200).json({
+          users
+      })
   } catch (err) {
-    return next(
-      new CustomError(`Error in fetching the user notes. ${err}`, 500)
-    );
+      next(err);
   }
-
-  if (!notes) {
-    return next(new CustomError("Error in fetching the user notes.", 500));
-  }
-
-  res.status(200).json({
-    message: "Fetched User's all notes",
-    notes,
-  });
-});
-
-
-
-export const getCompleteData = handleAsyncError(async (req, res, next) => {
-
-  let data;
-  try {
-    data = await User.find().populate("notes");
-  } catch (error) {
-    return next(new CustomError("Error in fetching complete data.", 500));
-  }
-
-  return res.status(200).json({
-    message : "Successful In fetching complete data",
-    data
-  })
-});
+}
